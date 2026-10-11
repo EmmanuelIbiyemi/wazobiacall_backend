@@ -9,6 +9,12 @@ from dotenv import load_dotenv
 # The auth router
 from apis.auth import authentication
 
+# This is for the call
+# from apis.translation import call_translate
+
+# This is for the voip call
+from apis.call import calls
+
 load_dotenv()
 
 
@@ -18,7 +24,10 @@ call = FastAPI(
 )
 
 hosted_domain = os.getenv("HOST_FRONTEND_LINK")
+
 call.include_router(authentication)
+call.include_router(calls)
+# call.include_router(call_translate)
 
 origins = [
      "*",

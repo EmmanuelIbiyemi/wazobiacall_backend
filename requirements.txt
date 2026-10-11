@@ -33,6 +33,9 @@ httpx==0.28.1
 idna==3.11
 Jinja2==3.1.6
 jiter==0.16.0
+livekit-agents>=1.0.0,<2.0.0
+torch>=2.2.0
+transformers>=4.44.0
 jose==1.0.0
 joserfc==1.6.4
 jwt==1.4.0

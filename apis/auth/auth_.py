@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import select , insert , update , delete
@@ -7,6 +8,7 @@ from models.account import Account
 from schemas.auth_schema import AccountCreate, AccountSignin
 import uuid
 import os
+import secrets
 import bcrypt
 from dotenv import load_dotenv
 from datetime import datetime , timezone, timedelta
@@ -74,6 +76,19 @@ def generate_account_id() -> str:
     return str("USER_"+uuid.uuid4().hex[:8])  # Generate a random string of 8 characters
 
 
+# In-memory store of pending verification codes.
+pending_verification_codes: dict[str, str] = {}
+
+
+def verification_code_generator() -> str:
+    """Generate a 6-digit numeric verification code."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+class PreferLangBody(BaseModel):
+    prefer_lang: str
+
+
 @auth_router.post("/signup", status_code=status.HTTP_201_CREATED)
 def signup(account: AccountCreate, db: Session = Depends(get_db)):
     try:
@@ -95,15 +110,16 @@ def signup(account: AccountCreate, db: Session = Depends(get_db)):
                 "password": hashed_password,
                 "phone_number": account.phone_number,
                 "verified_number": False,
-                "prefer_lang": "englih"
+                "prefer_lang": "english"
             }
         )
         db.execute(new_account)
         db.commit()
-
+        
         return {
             "status": "success",
             "message": "Account created successfully",
+            # "token": access_token,
             "account_id": str(generate_account_id())
         }
 
@@ -127,34 +143,31 @@ def signin(account: AccountSignin, db: Session = Depends(get_db)):
         result = execute.scalar_one_or_none()
 
 
-        if result != None:
-            verify = bcrypt.checkpw(account.password.encode('utf-8'), result.password.encode('utf-8'))
+        if result is None:
+            return {"error": "User not found", "role": "wazobia_call"}, 404
 
+        verify = bcrypt.checkpw(account.password.encode('utf-8'), result.password.encode('utf-8'))
 
-            if result and verify:
-                access_token = create_access_token(data={"sub": str(result.userID)})
+        if not verify:
+            return {"error": "invalid password", "role": "wazobia_call"}, 401
 
-                if result.verified_number == False:
-                    return {
-                        "status":"successfull",
-                        "user_id": result.userID,
-                        "phone_verified":result.verified_number,
-                        "token":access_token
-                    }, 200
-                elif result.verified_number == True:
-                    
-                    return {
-                        "status":"successfull",
-                        "user_id": result.userID,
-                        "prefer_lang":result.prefer_lang,
-                        "phone_verified":result.verified_number,
-                        "token": access_token
-                    }
-        elif result and not verify :
-                return {"error": "Invalid password", "role": "wazobia_call"}, 401
-            
-        elif not result:
-                return {"error": "User not found", "role": "wazobia_call"}, 404
+        access_token = create_access_token(data={"sub": str(result.userID)})
+
+        if result.verified_number == False:
+            return {
+                "status": "successfull",
+                "user_id": result.userID,
+                "phone_verified": result.verified_number,
+                "token": access_token
+            }, 200
+
+        return {
+            "status": "successfull",
+            "user_id": result.userID,
+            "prefer_lang": result.prefer_lang,
+            "phone_verified": result.verified_number,
+            "token": access_token
+        }
         
 
 
@@ -163,6 +176,50 @@ def signin(account: AccountSignin, db: Session = Depends(get_db)):
             "status": "error",
             "message": str(e)
         }
+
+
+@auth_router.get("/me", status_code=status.HTTP_200_OK)
+def get_me(auth_tok: Account = Depends(get_current_user)):
+    """
+    Return the signed-in user's profile (username, phone number, etc).
+    """
+    return {
+        "status": "success",
+        "user_id": auth_tok.userID,
+        "username": auth_tok.username,
+        "email": auth_tok.email,
+        "phone_number": auth_tok.phone_number,
+        "verified_number": auth_tok.verified_number,
+        "prefer_lang": auth_tok.prefer_lang,
+    }
+
+
+@auth_router.post("/prefer_lang", status_code=status.HTTP_200_OK)
+def update_prefer_lang(
+    body: PreferLangBody,
+    auth_tok: Account = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update the signed-in user's preferred language (used for call STT).
+    """
+    language = (body.prefer_lang or "").strip().lower()
+    if not language:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="prefer_lang is required",
+        )
+
+    update_lang = update(Account).where(
+        Account.phone_number == auth_tok.phone_number
+    ).values(
+        prefer_lang = language
+    )
+
+    db.execute(update_lang)
+    db.commit()
+
+    return {"status": "success", "prefer_lang": auth_tok.prefer_lang}
 
 
 """
