@@ -119,15 +119,29 @@ def start_transcription(room: str, caller: str, callee: str, langs: dict[str, st
             "language": language,
             "target_language": target_language,
         }
-        for identity in {caller, callee}:
-            print(
-                f"[STT websocket] sending to {identity}: "
-                f"{len(hub.clients.get(identity, ()))} connected frontend socket(s)",
-                flush=True,
-            )
-        await asyncio.gather(
-            *(hub.send(identity, message) for identity in {caller, callee})
+        # Send only to the listener (the other party). Each party therefore
+        # receives only the *other* person's speech, already translated into
+        # their own preferred language — never their own words echoed back.
+        print(
+            f"[STT websocket] sending to {listener}: "
+            f"{len(hub.clients.get(listener, ()))} connected frontend socket(s)",
+            flush=True,
         )
+        await hub.send(listener, message)
+
+        # Also push a "translation" event so the listener's app speaks the
+        # translated text aloud (TTS). Only final utterances are spoken, so
+        # interim chunks never trigger a voice.
+        if result.is_final:
+            await hub.send(
+                listener,
+                {
+                    "event": "translation",
+                    "room": room,
+                    "translated": translated,
+                    "lang": target_language,
+                },
+            )
 
     task = asyncio.create_task(
         run_bot(room, langs, on_transcript=publish_transcript)

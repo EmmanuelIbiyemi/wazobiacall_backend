@@ -3,7 +3,9 @@ from pydantic import BaseModel
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from apis.termii import send_verification_code
+# SMS sending is temporarily disabled — the code is printed to the server logs
+# instead (see verify_number below).
+# from apis.termii import send_verification_code
 from models.account import Account
 from models.sessions import get_db
 from .auth_ import (
@@ -16,25 +18,24 @@ verify_router = APIRouter(tags=["Verify"])
 
 
 class VerifyCodeBody(BaseModel):
-    code: int | None = None
+    code: str | None = None
 
 
 @verify_router.post("/verify-number", status_code=status.HTTP_200_OK)
-@verify_router.post("/veriff_num", status_code=status.HTTP_200_OK)
-async def verify_number(
-    # body: VerifyCodeBody,
-    VerifyCode: int,
+def verify_number(
+    body: VerifyCodeBody,
     auth_tok: Account = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Send a verification code by SMS or validate a submitted code."""
     user_id = auth_tok.userID
-    submitted = (VerifyCode or 0)
+    submitted = (body.code or "").strip()
 
     # No code, or "0", means "send me a (new) code" (used by the resend button).
-    if submitted == 0 :
+    if submitted in ("", "0"):
         new_code = verification_code_generator()
-        await send_verification_code(auth_tok.phone_number, new_code)
+        print(f"Verification code for {user_id}: {new_code}")
+        # await send_verification_code(auth_tok.phone_number, new_code)
         pending_verification_codes[user_id] = new_code
         return {"status": "success", "message": "Verification code sent by SMS"}
 

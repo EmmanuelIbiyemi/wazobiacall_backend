@@ -4,7 +4,7 @@ This is the single seam the call pipeline uses. Both languages come from the
 database (`Account.prefer_lang`): the speaker's own language is the STT source,
 and the *other* party's language is the translation target.
 
-To switch translation on, point NTLAS_TRANSLATE_URL at your engine:
+Translation is handled by NTLAS (the external engine). Point it at the engine:
 
     NTLAS_TRANSLATE_URL=https://your-ntlas-host/translate
 
@@ -33,12 +33,12 @@ _warned = False
 
 
 def is_configured() -> bool:
-    """True when a translation engine is wired up."""
+    """True when the NTLAS translation endpoint is wired up."""
     return bool(TRANSLATE_URL)
 
 
 async def translate(text: str, source_lang: str, target_lang: str) -> str:
-    """Translate `text` from `source_lang` into `target_lang`.
+    """Translate `text` from `source_lang` into `target_lang` via NTLAS.
 
     Returns `text` unchanged when there is nothing to do, or when no engine is
     configured / the engine fails.
