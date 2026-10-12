@@ -2,6 +2,40 @@
 
 FastAPI backend for Wazobia Call, including account authentication and LiveKit calling.
 
+
+$env.example
+```
+   # PostgreSQL database
+   DB_USER=your_database_user
+   DB_PASSWORD=replace_with_database_password
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_DATABASE=wazobiacall
+
+   # Authentication signing key and JWT algorithm
+   # Generate a strong random key for local use; do not reuse production secrets.
+   SECRET_KEY=replace_with_a_long_random_secret
+   ALGORITHM=HS256
+
+   # LiveKit project credentials (required for call endpoints)
+   LIVEKIT_URL=wss://your-project.livekit.cloud
+   LIVEKIT_API_KEY=replace_with_livekit_api_key
+   LIVEKIT_API_SECRET=replace_with_livekit_api_secret
+
+   # Optional: configure SMS invitations and verification
+   #sms is not yet active in the backend due to verification still progress from the sms platform
+   TERMII_BASE_URL=https://v3.api.termii.com
+   TERMII_API_KEY=replace_with_termii_api_key
+   TERMII_SENDER_ID=your_sender_id
+
+   # Optional: translation service endpoint
+   NTLAS_TRANSLATE_URL=
+
+   # Optional: Hugging Face access token for gated speech models
+   HF_TOKEN=
+
+```
+
 ## Run locally
 
 Requirements: Python 3.11 or newer, PostgreSQL, and a LiveKit project.
@@ -33,5 +67,7 @@ The API LOCALY is available at <http://127.0.0.1:8000>; interactive API docs are
 <http://127.0.0.1:8000/docs>.
 
 # Website
---- https://wazobia-website-ten.vercel.app/ 
+   ```
+      https://wazobia-website-ten.vercel.app/ 
+   ```
 To download the apk file
