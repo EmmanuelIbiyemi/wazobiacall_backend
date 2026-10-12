@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import select , insert , update , delete
+from sqlalchemy.exc import IntegrityError
 from models.sessions import get_db
 from models.account import Account
 from schemas.auth_schema import AccountCreate, AccountSignin
@@ -91,43 +92,64 @@ class PreferLangBody(BaseModel):
 
 @auth_router.post("/signup", status_code=status.HTTP_201_CREATED)
 def signup(account: AccountCreate, db: Session = Depends(get_db)):
-    try:
-
-        # Check if the email already exists
-        existing_account = db.execute(select(Account).where(Account.email == account.email)).scalar_one_or_none()
-        if existing_account:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
-
-        hashed_password = bcrypt.hashpw(account.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-
-        # Create a new account
-        new_account = insert(Account).values(
-            {
-                "userID": str(generate_account_id()),
-                "username": account.username,
-                "email": account.email,
-                "password": hashed_password,
-                "phone_number": account.phone_number,
-                "verified_number": False,
-                "prefer_lang": "english"
-            }
+    if db.execute(
+        select(Account).where(Account.email == account.email)
+    ).scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Account already exists",
         )
-        db.execute(new_account)
-        db.commit()
-        
-        return {
-            "status": "success",
-            "message": "Account created successfully",
-            # "token": access_token,
-            "account_id": str(generate_account_id())
-        }
+    if db.execute(
+        select(Account).where(Account.username == account.username)
+    ).scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already taken",
+        )
 
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+    user_id = generate_account_id()
+    hashed_password = bcrypt.hashpw(
+        account.password.encode("utf-8"), bcrypt.gensalt()
+    ).decode("utf-8")
+
+    try:
+        db.execute(
+            insert(Account).values(
+                {
+                    "userID": user_id,
+                    "username": account.username,
+                    "email": account.email,
+                    "password": hashed_password,
+                    "phone_number": account.phone_number,
+                    "verified_number": False,
+                    "prefer_lang": "english",
+                }
+            )
+        )
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        if db.execute(
+            select(Account).where(Account.email == account.email)
+        ).scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Account already exists",
+            ) from error
+        if db.execute(
+            select(Account).where(Account.username == account.username)
+        ).scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username already taken",
+            ) from error
+        raise
+
+    return {
+        "status": "success",
+        "message": "Account created successfully",
+        "account_id": user_id,
+    }
 
 
 @auth_router.post("/signin", status_code=status.HTTP_200_OK)
