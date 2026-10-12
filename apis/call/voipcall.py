@@ -67,13 +67,17 @@ def phone_variants(number: str) -> set[str]:
     return {variant for variant in variants if variant}
 
 
-def start_transcription(room: str, caller: str, callee: str, langs: dict[str, str]) -> None:
+def start_transcription(room: str, caller: str, callee: str, langs: dict[str, str], registered_lang: dict[str, str]) -> None:
     # Each party hears the other party's language.
     targets = {
         caller: langs.get(callee, "en"),
         callee: langs.get(caller, "en"),
     }
 
+    registee_lng = {
+        caller: registered_lang.get(callee, "en"),
+        callee: registered_lang.get(caller, "en"),
+    }
     async def publish_transcript(speaker: str, result: STTResult, language: str) -> None:
         text = result.text.strip()
         if not text:
@@ -94,7 +98,8 @@ def start_transcription(room: str, caller: str, callee: str, langs: dict[str, st
         translated = await translate(text, language, target_language)
 
         print(
-            f"[{speaker_label} | {speaker_number}] spoke ({language}): {text}"
+            f"[{speaker_label} | {speaker_number}] spoke "
+            f"({registered_lang.get(speaker_number, language)}): {text}"
             f"{'' if result.is_final else ' (interim)'}",
             flush=True,
         )
@@ -345,20 +350,25 @@ async def start_call(
         select(Account).where(Account.phone_number.in_(phone_variants(b.callee)))
     ).scalars().first()
     if callee_account is None:
-        await send_invitation(callee, auth_tok.username)
+        # await send_invitation(callee, auth_tok.username)
         return {
             "status": "successful",
-            "invitation_sent": True,
-            "message": "This number is not registered. An invitation SMS has been sent.",
+            # "invitation_sent": True,
+            "message": "This number is not registered. kindly send apk link to user.",
         }
 
     room = f"call-{uuid.uuid4().hex[:10]}"
     await create_call_room(room)
     raw_caller_lang = auth_tok.prefer_lang
     raw_callee_lang = callee_account.prefer_lang
-    langs = {
+
+    registered_lang ={
         caller: stt_language(raw_caller_lang),
         callee: stt_language(raw_callee_lang),
+    }
+    langs = {
+        caller: stt_language(raw_callee_lang),
+        callee: stt_language(raw_caller_lang),
     }
     # Show the DB value and the code it resolved to, so a wrong source language
     # is obvious immediately instead of looking like a translation bug.
@@ -366,9 +376,9 @@ async def start_call(
     callee_model = STT_REGISTRY[langs[callee]].model_id
     print(
         f"[call {room}] languages -> "
-        f"Caller 1 {caller}: prefer_lang={raw_caller_lang!r} => stt={langs[caller]} "
+        f"Caller 1 {caller}: prefer_lang={raw_caller_lang!r} => stt={registered_lang[caller]} "
         f"model={caller_model} | "
-        f"Caller 2 {callee}: prefer_lang={raw_callee_lang!r} => stt={langs[callee]} "
+        f"Caller 2 {callee}: prefer_lang={raw_callee_lang!r} => stt={registered_lang[callee]} "
         f"model={callee_model}",
         flush=True,
     )
@@ -386,7 +396,7 @@ async def start_call(
         "callee": callee,
         "created_at": time.monotonic(),
     }
-    start_transcription(room, caller, callee, langs)
+    start_transcription(room, caller, callee, langs , registered_lang )
     # Warm up only the two selected languages; this must not delay ringing, so
     # it runs in the background and the bot still loads lazily if it loses.
     warmup = asyncio.create_task(preload(langs.values()))

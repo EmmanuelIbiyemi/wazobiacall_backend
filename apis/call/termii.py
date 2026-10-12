@@ -1,4 +1,4 @@
-from apis.termii import send_invitation
+from apis.sms_sender.termii import send_invitation
 
 
 async def verif_func(phone_number: str, caller_name: str) -> dict[str, str]:
