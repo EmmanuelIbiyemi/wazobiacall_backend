@@ -38,6 +38,10 @@ class AccountCreate(BaseModel):
         """
         Validate phone number
         """
+        if phone_number and phone_number.startswith("+"):
+            phone_number = phone_number[1:]
+        if phone_number and phone_number.startswith("0"):
+            phone_number = "234" + phone_number[1:]
         if not phone_number or len(phone_number) < 10:
             raise ValueError("Invalid phone number")
         return phone_number
