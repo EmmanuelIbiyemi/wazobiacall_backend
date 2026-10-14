@@ -59,7 +59,6 @@ joblib==1.6.0
 jose==1.0.0
 joserfc==1.6.4
 json_repair==0.60.1
-jwt==1.4.0
 lazy-loader==0.6
 librosa==1.0.0
 livekit==1.1.20
