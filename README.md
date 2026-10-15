@@ -62,10 +62,14 @@ Requirements: Python 3.11 or newer, PostgreSQL, and a LiveKit project.
    ```powershell
    uvicorn main:call --reload
    ```
+   ```
+   The API LOCALY is available at <http://127.0.0.1:8000>; interactive API docs are at
+   <http://127.0.0.1:8000/docs>.
+   ```
 
-The API LOCALY is available at <http://127.0.0.1:8000>; interactive API docs are at
-<http://127.0.0.1:8000/docs>.
-
+   ```
+      ngrok http 8000
+   ```
 # Website
    ```
       https://wazobia-website-ten.vercel.app/ 
