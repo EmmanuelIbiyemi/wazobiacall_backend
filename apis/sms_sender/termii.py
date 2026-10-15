@@ -1,13 +1,15 @@
 import logging
 import os
-
+# import asyncio
 import httpx
+from dotenv import load_dotenv
 from fastapi import HTTPException
 
 log = logging.getLogger(__name__)
 
-SMS_SEND_PATH = "/api/sms/send"
+SMS_SEND_PATH = "/api/v1/sms/send"
 
+load_dotenv()
 
 def sms_url(base_url: str) -> str:
     """Build the Termii send-SMS URL from a configured base URL.
@@ -25,6 +27,9 @@ async def send_sms(phone_number: str, message: str) -> dict[str, str]:
     base_url = os.getenv("TERMII_BASE_URL")
     api_key = os.getenv("TERMII_API_KEY")
     sender_id = os.getenv("TERMII_SENDER_ID")
+    print(base_url)
+    print(api_key)
+    print(sender_id)
     if not base_url or not api_key or not sender_id:
         log.error("Termii SMS is not configured; required environment variables are missing")
         raise HTTPException(status_code=503, detail="SMS is not configured")
@@ -36,7 +41,7 @@ async def send_sms(phone_number: str, message: str) -> dict[str, str]:
         "from": sender_id,
         "sms": message,
         "type": "plain",
-        "channel": "generic"
+        "channel": "dnd"
     }
 
     try:
@@ -68,3 +73,6 @@ async def send_invitation(phone_number: str, caller_name: str) -> dict[str, str]
         f"{caller_name} is trying to call you on Wazobia Call. "
         "Install the app and sign up to receive their call.",
     )
+
+
+# asyncio.run(send_verification_code(phone_number="2347079774479", code="333433"))
