@@ -2,6 +2,7 @@
 
 FastAPI backend for Wazobia Call, including account authentication and LiveKit calling.
 
+# N-ATLAS ASR transcribes speech; a separate translation service translates the text
 
 $env.example
 ```
